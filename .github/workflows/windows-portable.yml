@@ -29,7 +29,7 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.2"
+          php-version: "8.1"
           extensions: curl, dom, fileinfo, gd, intl, mbstring, openssl, soap, xml, zip, zlib
           tools: composer:v2
           coverage: none
@@ -39,6 +39,7 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
 
+          php -v
           composer install --no-dev --optimize-autoloader
           ./tools/prepare_portable_php.ps1 -TargetDir runtime/php
           python -m pip install --upgrade pip pyinstaller
