@@ -1,0 +1,2 @@
+# A interface usa apenas a biblioteca padrão do Python (Tkinter).
+# O motor fiscal é PHP/NFePHP e é instalado via Composer.
