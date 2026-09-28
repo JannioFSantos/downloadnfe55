@@ -7,6 +7,7 @@ A interface desktop é feita em Python/Tkinter e o motor fiscal utiliza NFePHP.
 ## Recursos
 
 - seleção de certificado A1 `.pfx` ou `.p12`;
+- opção de usar certificado A1 instalado no Windows;
 - consulta oficial da Distribuição DF-e;
 - controle automático do `ultNSU`;
 - armazenamento separado de:
@@ -20,7 +21,7 @@ A interface desktop é feita em Python/Tkinter e o motor fiscal utiliza NFePHP.
 
 ## Versão portátil para Windows
 
-Baixe o pacote pronto aqui: [DownloadNFe55-windows-portable](https://github.com/JannioFSantos/downloadnfe55/actions/runs/36435223161/artifacts/10974788687).
+Baixe o pacote pronto aqui: [DownloadNFe55-windows-portable](https://github.com/JannioFSantos/downloadnfe55/actions/runs/36437394851/artifacts/10975464918).
 
 Depois de baixar, extraia o ZIP e abra `DownloadNFe55.exe`. Não é necessário instalar Python, PHP ou Composer no computador do usuário final.
 
@@ -50,6 +51,15 @@ Ao executar, o aplicativo procura o PHP nesta ordem:
 2. php.exe instalado no Windows e disponível no PATH
 3. mensagem clara informando que o Runtime PHP não foi encontrado
 ```
+
+## Certificado A1
+
+É possível usar o certificado de duas formas:
+
+1. Clicar em **Selecionar arquivo** e escolher um arquivo `.pfx` ou `.p12`.
+2. No Windows, clicar em **Usar instalado no Windows** e escolher um certificado instalado no repositório do Windows.
+
+Para certificados instalados no Windows, o aplicativo cria temporariamente um PFX interno protegido por senha aleatória e remove esse arquivo ao fechar. Isso só funciona quando a chave privada do certificado permite exportação. Se o Windows bloquear a exportação, use o arquivo `.pfx` ou `.p12` original.
 
 ### Erro ao ler certificado A1
 
