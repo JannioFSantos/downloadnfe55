@@ -38,9 +38,17 @@ jobs:
         shell: cmd
         run: build_windows.bat
 
+      - name: Verify portable ZIP
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse package
+          if (-not (Test-Path "package/DownloadNFe55-windows-portable.zip")) {
+            throw "Portable ZIP was not created."
+          }
+
       - name: Upload portable ZIP
         uses: actions/upload-artifact@v4
         with:
           name: DownloadNFe55-windows-portable
-          path: package/DownloadNFe55-windows-portable.zip
+          path: package/*.zip
           if-no-files-found: error
