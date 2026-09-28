@@ -34,13 +34,20 @@ jobs:
           tools: composer:v2
           coverage: none
 
-      - name: Build package
+      - name: Build portable folder
         shell: cmd
         run: build_windows.bat
 
-      - name: Verify portable ZIP
+      - name: Create portable ZIP
         shell: pwsh
         run: |
+          if (-not (Test-Path "dist/DownloadNFe55")) {
+            throw "Portable folder was not created."
+          }
+
+          New-Item -ItemType Directory -Path package -Force | Out-Null
+          Compress-Archive -Path "dist/DownloadNFe55/*" -DestinationPath "package/DownloadNFe55-windows-portable.zip" -Force
+
           Get-ChildItem -Recurse package
           if (-not (Test-Path "package/DownloadNFe55-windows-portable.zip")) {
             throw "Portable ZIP was not created."
