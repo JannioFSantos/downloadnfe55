@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Windows portable ZIP
+    name: Build Windows portable package
     runs-on: windows-latest
 
     steps:
@@ -38,19 +38,9 @@ jobs:
         shell: cmd
         run: build_windows.bat
 
-      - name: Create portable ZIP
-        shell: cmd
-        run: |
-          if not exist dist\DownloadNFe55\DownloadNFe55.exe exit /b 1
-          if not exist package mkdir package
-          dir dist\DownloadNFe55
-          7z a -tzip package\DownloadNFe55-windows-portable.zip .\dist\DownloadNFe55\* -r
-          if not exist package\DownloadNFe55-windows-portable.zip exit /b 1
-          dir package
-
-      - name: Upload portable ZIP
+      - name: Upload portable package
         uses: actions/upload-artifact@v4
         with:
           name: DownloadNFe55-windows-portable
-          path: package/*.zip
+          path: dist/DownloadNFe55/**
           if-no-files-found: error
