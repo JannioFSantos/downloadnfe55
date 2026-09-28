@@ -1,6 +1,6 @@
 # downloadnfe55
 
-Ferramenta desktop que estou desenvolvendo para baixar **NF-e modelo 55 destinadas ao CNPJ** usando o serviço oficial **Distribuição DF-e (NFeDistribuicaoDFe)**, certificado digital A1 e o projeto open source [NFePHP/SPED-NFe](https://github.com/nfephp-org/sped-nfe).
+Ferramenta desktop para baixar **NF-e modelo 55 destinadas ao CNPJ** usando o serviço oficial **Distribuição DF-e (NFeDistribuicaoDFe)**, certificado digital A1 e o projeto open source [NFePHP/SPED-NFe](https://github.com/nfephp-org/sped-nfe).
 
 A interface desktop é feita em Python/Tkinter e o motor fiscal utiliza NFePHP.
 
@@ -16,11 +16,40 @@ A interface desktop é feita em Python/Tkinter e o motor fiscal utiliza NFePHP.
 - tela para visualizar documentos encontrados;
 - manifestação **Ciência da Operação** somente após confirmação do usuário;
 - sem Selenium, Chrome ou ChromeDriver;
-- preparado para futura distribuição em Windows.
+- versão portátil para Windows com PHP e dependências incluídos.
+
+## Versão portátil para Windows
+
+O pacote portátil gerado pelo build fica assim:
+
+```text
+DownloadNFe55/
+├── DownloadNFe55.exe
+├── runtime/
+│   └── php/
+│       ├── php.exe
+│       ├── php.ini
+│       └── ext/
+├── php/
+│   ├── distribuicao.php
+│   └── manifestacao.php
+└── vendor/
+    └── NFePHP e dependências Composer
+```
+
+O usuário final deve baixar o ZIP portátil, extrair a pasta e abrir `DownloadNFe55.exe`. Não é necessário instalar Python, PHP ou Composer no computador do usuário final.
+
+Ao executar, o aplicativo procura o PHP nesta ordem:
+
+```text
+1. runtime/php/php.exe dentro do pacote portátil
+2. php.exe instalado no Windows e disponível no PATH
+3. mensagem clara informando que o Runtime PHP não foi encontrado
+```
 
 ## Fluxo
 
-```
+```text
 CNPJ + UF + Certificado A1
           ↓
       NFePHP
@@ -44,7 +73,9 @@ XML completo    resumo
 
 O **NSU não é o número da NF-e**. Ele é o sequencial utilizado pela Distribuição DF-e. O aplicativo guarda automaticamente o último NSU processado para continuar as consultas sem reiniciar do zero.
 
-## Requisitos
+## Requisitos para desenvolvimento
+
+Para rodar a partir do código-fonte ou gerar o pacote localmente:
 
 - Python 3.10 ou superior;
 - PHP 8.1 ou superior;
@@ -52,7 +83,7 @@ O **NSU não é o número da NF-e**. Ele é o sequencial utilizado pela Distribu
 - extensões PHP exigidas pelo NFePHP;
 - certificado digital A1 válido.
 
-## Instalação
+## Instalação para desenvolvimento
 
 ```bash
 git clone https://github.com/JannioFSantos/downloadnfe55.git
@@ -61,14 +92,39 @@ composer install
 python app.py
 ```
 
-## Estrutura
+## Gerar pacote portátil localmente
 
+No Windows, com Python, PHP e Composer instalados:
+
+```bat
+build_windows.bat
 ```
+
+O arquivo final será criado em:
+
+```text
+package/DownloadNFe55-windows-portable.zip
+```
+
+## Gerar pacote pelo GitHub Actions
+
+O workflow **Windows portable package** gera automaticamente o ZIP portátil em Windows. Ele instala Python, PHP e Composer no ambiente do GitHub, baixa as dependências Composer, copia o PHP para `runtime/php` e publica o artefato `DownloadNFe55-windows-portable`.
+
+Também é possível executar o workflow manualmente pela aba **Actions** do GitHub.
+
+## Estrutura do código-fonte
+
+```text
 downloadnfe55/
 ├── app.py
 ├── composer.json
 ├── requirements.txt
-├── .gitignore
+├── build_windows.bat
+├── tools/
+│   └── prepare_portable_php.ps1
+├── .github/
+│   └── workflows/
+│       └── windows-portable.yml
 ├── php/
 │   ├── distribuicao.php
 │   └── manifestacao.php
@@ -79,7 +135,7 @@ downloadnfe55/
 
 Não envie certificado A1, senha ou XML real para o GitHub.
 
-Os arquivos `*.pfx`, `*.p12` e os arquivos de estado do NSU ficam ignorados pelo Git.
+Os arquivos `*.pfx`, `*.p12`, `runtime/`, `vendor/` e os arquivos de estado do NSU ficam ignorados pelo Git.
 
 A senha do certificado é utilizada somente durante a execução e não deve ser salva no repositório.
 

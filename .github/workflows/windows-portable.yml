@@ -1,0 +1,46 @@
+name: Windows portable package
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Windows portable ZIP
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: curl, dom, fileinfo, gd, intl, mbstring, openssl, soap, xml, zip, zlib
+          tools: composer:v2
+          coverage: none
+
+      - name: Build package
+        shell: cmd
+        run: build_windows.bat
+
+      - name: Upload portable ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: DownloadNFe55-windows-portable
+          path: package/DownloadNFe55-windows-portable.zip
+          if-no-files-found: error
