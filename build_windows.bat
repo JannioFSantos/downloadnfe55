@@ -33,17 +33,32 @@ python -m PyInstaller ^
   --name DownloadNFe55 ^
   app.py || exit /b 1
 
-robocopy php dist\DownloadNFe55\php /E >nul
+if not exist package\DownloadNFe55 mkdir package\DownloadNFe55
+
+if exist dist\DownloadNFe55\DownloadNFe55.exe (
+    robocopy dist\DownloadNFe55 package\DownloadNFe55 /E >nul
+    if errorlevel 8 exit /b %errorlevel%
+) else if exist dist\DownloadNFe55.exe (
+    copy /Y dist\DownloadNFe55.exe package\DownloadNFe55\DownloadNFe55.exe >nul || exit /b 1
+) else (
+    echo Executavel DownloadNFe55 nao encontrado em dist.
+    dir dist /s
+    exit /b 1
+)
+
+robocopy php package\DownloadNFe55\php /E >nul
 if errorlevel 8 exit /b %errorlevel%
 
-robocopy vendor dist\DownloadNFe55\vendor /E >nul
+robocopy vendor package\DownloadNFe55\vendor /E >nul
 if errorlevel 8 exit /b %errorlevel%
 
-robocopy runtime dist\DownloadNFe55\runtime /E >nul
+robocopy runtime package\DownloadNFe55\runtime /E >nul
 if errorlevel 8 exit /b %errorlevel%
 
-mkdir package >nul 2>nul
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Compress-Archive -Path 'dist\DownloadNFe55\*' -DestinationPath 'package\DownloadNFe55-windows-portable.zip' -Force" || exit /b 1
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Compress-Archive -Path 'package\DownloadNFe55\*' -DestinationPath 'package\DownloadNFe55-windows-portable.zip' -Force" || exit /b 1
+
+if not exist package\DownloadNFe55\DownloadNFe55.exe exit /b 1
 
 echo.
-echo Pacote portatil criado em package\DownloadNFe55-windows-portable.zip
+echo Pasta portatil criada em package\DownloadNFe55
+echo ZIP portatil criado em package\DownloadNFe55-windows-portable.zip
