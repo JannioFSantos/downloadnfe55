@@ -33,10 +33,12 @@ DownloadNFe55/
 │   └── php/
 │       ├── php.exe
 │       ├── php.ini
+│       ├── openssl-legacy.cnf
 │       └── ext/
 ├── php/
 │   ├── distribuicao.php
-│   └── manifestacao.php
+│   ├── manifestacao.php
+│   └── openssl_legacy.php
 └── vendor/
     └── NFePHP e dependências Composer
 ```
@@ -48,6 +50,12 @@ Ao executar, o aplicativo procura o PHP nesta ordem:
 2. php.exe instalado no Windows e disponível no PATH
 3. mensagem clara informando que o Runtime PHP não foi encontrado
 ```
+
+### Erro ao ler certificado A1
+
+Se aparecer o erro `error:0308010c:digital envelope routines::unsupported`, baixe novamente a versão portátil mais recente. Esse erro ocorre com alguns certificados A1 exportados com criptografia antiga; o pacote portátil inclui uma configuração OpenSSL compatível para esse caso.
+
+Se o erro continuar, exporte novamente o certificado A1 pelo Windows usando uma criptografia mais atual, de preferência AES/SHA-256, e tente com o novo arquivo `.pfx` ou `.p12`.
 
 ## Fluxo
 
@@ -129,7 +137,8 @@ downloadnfe55/
 │       └── windows-portable.yml
 ├── php/
 │   ├── distribuicao.php
-│   └── manifestacao.php
+│   ├── manifestacao.php
+│   └── openssl_legacy.php
 └── README.md
 ```
 

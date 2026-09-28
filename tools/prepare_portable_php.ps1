@@ -43,5 +43,25 @@ if ($ini -notmatch '(?m)^\s*extension_dir\s*=') {
 
 Set-Content -LiteralPath $iniPath -Value $ini -Encoding ASCII
 
+$opensslConfig = @'
+openssl_conf = openssl_init
+
+[openssl_init]
+providers = provider_sect
+
+[provider_sect]
+default = default_sect
+legacy = legacy_sect
+
+[default_sect]
+activate = 1
+
+[legacy_sect]
+activate = 1
+'@
+
+Set-Content -LiteralPath (Join-Path $targetPath "openssl-legacy.cnf") -Value $opensslConfig -Encoding ASCII
+
 & (Join-Path $targetPath "php.exe") -v | Out-Host
 Write-Host "Runtime PHP portatil copiado para $targetPath"
+Write-Host "Configuracao OpenSSL legacy criada em $targetPath\openssl-legacy.cnf"
