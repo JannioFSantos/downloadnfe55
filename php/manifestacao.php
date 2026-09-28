@@ -67,7 +67,7 @@ try {
         $certificate
     );
 
-    $tools->model('55');
+    $tools->model(55);
     $tools->setEnvironment(1);
 
     // tpEvento 1 no método do NFePHP representa Ciência da Operação.
