@@ -1,0 +1,10 @@
+{
+  "name": "janniofsantos/downloadnfe55",
+  "description": "Ferramenta desktop para download de NF-e 55 via Distribuição DF-e",
+  "type": "project",
+  "license": "MIT",
+  "require": {
+    "php": ">=8.1",
+    "nfephp-org/sped-nfe": "^5.1"
+  }
+}
