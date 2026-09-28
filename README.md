@@ -20,7 +20,7 @@ A interface desktop é feita em Python/Tkinter e o motor fiscal utiliza NFePHP.
 
 ## Versão portátil para Windows
 
-Baixe o pacote pronto aqui: [DownloadNFe55-windows-portable](https://github.com/JannioFSantos/downloadnfe55/actions/runs/36433689795/artifacts/10973929582).
+Baixe o pacote pronto aqui: [DownloadNFe55-windows-portable](https://github.com/JannioFSantos/downloadnfe55/actions/runs/36435223161/artifacts/10974788687).
 
 Depois de baixar, extraia o ZIP e abra `DownloadNFe55.exe`. Não é necessário instalar Python, PHP ou Composer no computador do usuário final.
 
