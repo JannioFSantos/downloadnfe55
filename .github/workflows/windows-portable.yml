@@ -35,13 +35,47 @@ jobs:
           coverage: none
 
       - name: Build portable package
-        shell: cmd
-        run: build_windows.bat
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          composer install --no-dev --optimize-autoloader
+          ./tools/prepare_portable_php.ps1 -TargetDir runtime/php
+          python -m pip install --upgrade pip pyinstaller
+
+          Remove-Item dist, build, package -Recurse -Force -ErrorAction SilentlyContinue
+          python -m PyInstaller --noconfirm --clean --windowed --name DownloadNFe55 app.py
+
+          New-Item -ItemType Directory -Path package/DownloadNFe55 -Force | Out-Null
+
+          if (Test-Path dist/DownloadNFe55/DownloadNFe55.exe) {
+            Copy-Item dist/DownloadNFe55/* package/DownloadNFe55/ -Recurse -Force
+          } elseif (Test-Path dist/DownloadNFe55.exe) {
+            Copy-Item dist/DownloadNFe55.exe package/DownloadNFe55/DownloadNFe55.exe -Force
+          } else {
+            Get-ChildItem dist -Recurse -ErrorAction SilentlyContinue
+            throw "Executavel DownloadNFe55 nao encontrado em dist."
+          }
+
+          Copy-Item php package/DownloadNFe55/php -Recurse -Force
+          Copy-Item vendor package/DownloadNFe55/vendor -Recurse -Force
+          Copy-Item runtime package/DownloadNFe55/runtime -Recurse -Force
+
+          Compress-Archive -Path package/DownloadNFe55/* -DestinationPath package/DownloadNFe55-windows-portable.zip -Force
+
+          if (-not (Test-Path package/DownloadNFe55/DownloadNFe55.exe)) {
+            throw "DownloadNFe55.exe nao foi gerado."
+          }
+
+          if (-not (Test-Path package/DownloadNFe55-windows-portable.zip)) {
+            throw "ZIP portatil nao foi gerado."
+          }
+
+          Get-Item package/DownloadNFe55-windows-portable.zip
 
       - name: Upload portable package
         uses: actions/upload-artifact@v4
-        continue-on-error: true
         with:
           name: DownloadNFe55-windows-portable
           path: package/DownloadNFe55-windows-portable.zip
-          if-no-files-found: warn
+          if-no-files-found: error
