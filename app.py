@@ -1,6 +1,8 @@
 import json
 import os
+import shutil
 import subprocess
+import sys
 import threading
 import tkinter as tk
 from pathlib import Path
@@ -8,9 +10,55 @@ from tkinter import filedialog, messagebox, ttk
 from xml.etree import ElementTree as ET
 
 APP_TITLE = "Download NF-e 55 - JannioFSantos"
-BASE_DIR = Path(__file__).resolve().parent
+
+APP_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
+BUNDLE_DIR = Path(getattr(sys, "_MEIPASS", APP_DIR)).resolve()
+SOURCE_DIR = Path(__file__).resolve().parent
+
+
+def resource_bases():
+    bases = []
+    for base in (APP_DIR, BUNDLE_DIR, SOURCE_DIR):
+        base = base.resolve()
+        if base not in bases:
+            bases.append(base)
+    return bases
+
+
+def find_backend_root():
+    for base in resource_bases():
+        if (base / "php" / "distribuicao.php").is_file() and (base / "php" / "manifestacao.php").is_file():
+            return base
+    return APP_DIR
+
+
+BASE_DIR = find_backend_root()
 DIST_SCRIPT = BASE_DIR / "php" / "distribuicao.php"
 MANIF_SCRIPT = BASE_DIR / "php" / "manifestacao.php"
+VENDOR_AUTOLOAD = BASE_DIR / "vendor" / "autoload.php"
+
+
+class RuntimeDependencyError(RuntimeError):
+    pass
+
+
+def resolve_php_executable():
+    executable_name = "php.exe" if os.name == "nt" else "php"
+
+    for base in resource_bases():
+        candidate = base / "runtime" / "php" / executable_name
+        if candidate.is_file():
+            return str(candidate)
+
+    system_php = shutil.which("php")
+    if system_php:
+        return system_php
+
+    raise RuntimeDependencyError(
+        "Runtime PHP não encontrado.\n\n"
+        "Baixe a versão portátil do DownloadNFe55 ou coloque o PHP em runtime\\php.\n"
+        "Alternativamente, instale o PHP 8.1 ou superior e deixe o php.exe no PATH do Windows."
+    )
 
 
 class DownloadNFe55App:
@@ -79,15 +127,16 @@ class DownloadNFe55App:
         botoes = ttk.Frame(frame)
         botoes.pack(fill="x", pady=10)
 
-        self.btn_sync = ttk.Button(botoes, text="Sincronizar NF-e", command=self.iniciar_sincronizacao)
+        self.btn_sync = ttk.Button(botoes, text="1. Sincronizar NF-e", command=self.iniciar_sincronizacao)
         self.btn_sync.pack(side="left")
 
         ttk.Button(botoes, text="Atualizar lista", command=self.carregar_documentos).pack(side="left", padx=6)
 
         self.btn_manifestar = ttk.Button(
             botoes,
-            text="Ciência da Operação",
+            text="2. Ciência da Operação",
             command=self.iniciar_manifestacao,
+            state="disabled",
         )
         self.btn_manifestar.pack(side="left")
 
@@ -109,6 +158,7 @@ class DownloadNFe55App:
             self.tree.column(coluna, width=largura, anchor="w")
 
         self.tree.pack(fill="both", expand=True)
+        self.tree.bind("<<TreeviewSelect>>", self.atualizar_estado_manifestacao)
 
         ttk.Label(frame, text="Log").pack(anchor="w", pady=(8, 0))
         self.log = tk.Text(frame, height=8, state="disabled", font=("Consolas", 9))
@@ -152,8 +202,16 @@ class DownloadNFe55App:
         return cnpj
 
     def comando_base(self, script, cnpj):
+        if not script.is_file():
+            raise RuntimeError(f"Script PHP não encontrado: {script}")
+
+        if not VENDOR_AUTOLOAD.is_file():
+            raise RuntimeError(
+                "Dependências PHP não encontradas. Baixe a versão portátil ou execute composer install."
+            )
+
         return [
-            "php",
+            resolve_php_executable(),
             str(script),
             "--cnpj",
             cnpj,
@@ -305,6 +363,22 @@ class DownloadNFe55App:
                 dados["tipo"] = pasta
                 self.documentos[iid] = dados
 
+        self.atualizar_estado_manifestacao()
+
+    def atualizar_estado_manifestacao(self, event=None):
+        if not hasattr(self, "btn_manifestar"):
+            return
+
+        state = "disabled"
+        selecao = self.tree.selection() if hasattr(self, "tree") else []
+
+        if selecao:
+            documento = self.documentos.get(selecao[0])
+            if documento and documento.get("tipo") == "resumos":
+                state = "normal"
+
+        self.btn_manifestar.configure(state=state)
+
     def iniciar_manifestacao(self):
         selecao = self.tree.selection()
 
@@ -358,7 +432,7 @@ class DownloadNFe55App:
             self.root.after(0, self.finalizar_manifestacao, str(exc), True)
 
     def finalizar_manifestacao(self, mensagem, erro):
-        self.btn_manifestar.configure(state="normal")
+        self.atualizar_estado_manifestacao()
         self.status.set(mensagem)
 
         if erro:
