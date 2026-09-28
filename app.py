@@ -61,6 +61,47 @@ def resolve_php_executable():
     )
 
 
+def find_openssl_modules_dir(runtime_php_dir):
+    candidates = [
+        runtime_php_dir / "extras" / "ssl",
+        runtime_php_dir / "lib" / "ossl-modules",
+        runtime_php_dir / "ossl-modules",
+    ]
+
+    for candidate in candidates:
+        if (candidate / "legacy.dll").is_file() or (candidate / "legacy.so").is_file():
+            return candidate
+
+    if not runtime_php_dir.is_dir():
+        return None
+
+    for module_name in ("legacy.dll", "legacy.so"):
+        try:
+            module = next(runtime_php_dir.rglob(module_name), None)
+        except OSError:
+            module = None
+
+        if module:
+            return module.parent
+
+    return None
+
+
+def build_backend_environment(php_executable):
+    env = os.environ.copy()
+    runtime_php_dir = Path(php_executable).resolve().parent
+    openssl_config = runtime_php_dir / "openssl-legacy.cnf"
+
+    if openssl_config.is_file():
+        env["OPENSSL_CONF"] = str(openssl_config)
+
+        modules_dir = find_openssl_modules_dir(runtime_php_dir)
+        if modules_dir:
+            env["OPENSSL_MODULES"] = str(modules_dir)
+
+    return env
+
+
 class DownloadNFe55App:
     def __init__(self, root):
         self.root = root
@@ -236,6 +277,7 @@ class DownloadNFe55App:
             encoding="utf-8",
             errors="replace",
             creationflags=flags,
+            env=build_backend_environment(comando[0]),
         )
 
         ultimo = None
