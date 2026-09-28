@@ -55,9 +55,15 @@ if errorlevel 8 exit /b %errorlevel%
 robocopy runtime package\DownloadNFe55\runtime /E >nul
 if errorlevel 8 exit /b %errorlevel%
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Compress-Archive -Path 'package\DownloadNFe55\*' -DestinationPath 'package\DownloadNFe55-windows-portable.zip' -Force" || exit /b 1
+where 7z >nul 2>nul
+if %errorlevel%==0 (
+    7z a -tzip package\DownloadNFe55-windows-portable.zip .\package\DownloadNFe55\* -r || exit /b 1
+) else (
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "Compress-Archive -Path 'package\DownloadNFe55\*' -DestinationPath 'package\DownloadNFe55-windows-portable.zip' -Force" || exit /b 1
+)
 
 if not exist package\DownloadNFe55\DownloadNFe55.exe exit /b 1
+if not exist package\DownloadNFe55-windows-portable.zip exit /b 1
 
 echo.
 echo Pasta portatil criada em package\DownloadNFe55
