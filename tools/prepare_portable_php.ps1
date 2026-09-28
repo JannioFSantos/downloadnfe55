@@ -38,7 +38,7 @@ $ini = Get-Content -LiteralPath $iniPath -Raw
 $ini = $ini -replace '(?m)^\s*;?\s*extension_dir\s*=.*$', 'extension_dir = "ext"'
 
 if ($ini -notmatch '(?m)^\s*extension_dir\s*=') {
-    $ini = $ini.TrimEnd() + "`r`nextension_dir = \"ext\"`r`n"
+    $ini = $ini.TrimEnd() + "`r`nextension_dir = `"ext`"`r`n"
 }
 
 Set-Content -LiteralPath $iniPath -Value $ini -Encoding ASCII
