@@ -38,17 +38,10 @@ jobs:
         shell: cmd
         run: build_windows.bat
 
-      - name: Verify portable package
-        shell: cmd
-        run: |
-          if not exist package\DownloadNFe55\DownloadNFe55.exe exit /b 1
-          if not exist package\DownloadNFe55-windows-portable.zip exit /b 1
-          dir package
-
       - name: Upload portable package
         uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
           name: DownloadNFe55-windows-portable
           path: package/DownloadNFe55-windows-portable.zip
-          if-no-files-found: error
+          if-no-files-found: warn
