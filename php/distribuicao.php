@@ -78,7 +78,7 @@ try {
         $certificate
     );
 
-    $tools->model('55');
+    $tools->model(55);
     $tools->setEnvironment(1);
 
     $xmlCompletos = 0;
