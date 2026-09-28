@@ -1,8 +1,11 @@
+import atexit
 import json
 import os
+import secrets
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import tkinter as tk
 from pathlib import Path
@@ -102,6 +105,96 @@ def build_backend_environment(php_executable):
     return env
 
 
+def run_powershell_json(script, env_extra=None):
+    powershell = shutil.which("powershell") or shutil.which("pwsh")
+    if not powershell:
+        raise RuntimeError("PowerShell não encontrado no Windows.")
+
+    env = os.environ.copy()
+    if env_extra:
+        env.update(env_extra)
+
+    flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    result = subprocess.run(
+        [powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8-sig",
+        errors="replace",
+        creationflags=flags,
+        env=env,
+    )
+
+    if result.returncode != 0:
+        details = (result.stderr or result.stdout).strip()
+        raise RuntimeError(details or "Falha ao executar comando do Windows.")
+
+    output = result.stdout.strip()
+    if not output:
+        return []
+
+    return json.loads(output)
+
+
+def list_windows_certificates():
+    script = r'''
+$ErrorActionPreference = 'Stop'
+$items = @()
+$stores = @(
+    @{ Path = 'Cert:\CurrentUser\My'; Name = 'Usuário atual' },
+    @{ Path = 'Cert:\LocalMachine\My'; Name = 'Computador local' }
+)
+
+foreach ($store in $stores) {
+    if (-not (Test-Path -LiteralPath $store.Path)) {
+        continue
+    }
+
+    Get-ChildItem -LiteralPath $store.Path -ErrorAction SilentlyContinue |
+        Where-Object { $_.HasPrivateKey -and $_.NotAfter -gt (Get-Date) } |
+        ForEach-Object {
+            $items += [PSCustomObject]@{
+                Store = $store.Path
+                StoreName = $store.Name
+                Thumbprint = $_.Thumbprint
+                Subject = $_.Subject
+                FriendlyName = $_.FriendlyName
+                Issuer = $_.Issuer
+                NotAfter = $_.NotAfter.ToString('dd/MM/yyyy HH:mm:ss')
+            }
+        }
+}
+
+$items | Sort-Object NotAfter -Descending | ConvertTo-Json -Depth 4 -Compress
+'''
+    certificates = run_powershell_json(script)
+    if isinstance(certificates, dict):
+        return [certificates]
+    return certificates or []
+
+
+def export_windows_certificate(cert_info, output_path, password):
+    script = r'''
+$ErrorActionPreference = 'Stop'
+$store = $env:DOWNLOADNFE55_CERT_STORE
+$thumbprint = $env:DOWNLOADNFE55_CERT_THUMBPRINT
+$outputPath = $env:DOWNLOADNFE55_PFX_PATH
+$password = ConvertTo-SecureString -String $env:DOWNLOADNFE55_PFX_PASSWORD -Force -AsPlainText
+$certPath = Join-Path $store $thumbprint
+$cert = Get-Item -LiteralPath $certPath
+$result = Export-PfxCertificate -Cert $cert -FilePath $outputPath -Password $password -Force
+[PSCustomObject]@{ Path = $result.FullName } | ConvertTo-Json -Compress
+'''
+    env = {
+        "DOWNLOADNFE55_CERT_STORE": cert_info["Store"],
+        "DOWNLOADNFE55_CERT_THUMBPRINT": cert_info["Thumbprint"],
+        "DOWNLOADNFE55_PFX_PATH": str(output_path),
+        "DOWNLOADNFE55_PFX_PASSWORD": password,
+    }
+    return run_powershell_json(script, env)
+
+
 class DownloadNFe55App:
     def __init__(self, root):
         self.root = root
@@ -116,6 +209,10 @@ class DownloadNFe55App:
         self.destino = tk.StringVar(value=str(Path.home() / "Downloads" / "NFe55"))
         self.status = tk.StringVar(value="Pronto.")
         self.documentos = {}
+        self.certificado_temporario = None
+
+        atexit.register(self.limpar_certificado_temporario)
+        self.root.protocol("WM_DELETE_WINDOW", self.fechar)
 
         self.build_ui()
         self.carregar_documentos()
@@ -153,7 +250,14 @@ class DownloadNFe55App:
         cert_row = ttk.Frame(form)
         cert_row.grid(row=2, column=1, sticky="ew", pady=5)
         ttk.Entry(cert_row, textvariable=self.certificado).pack(side="left", fill="x", expand=True)
-        ttk.Button(cert_row, text="Selecionar", command=self.selecionar_certificado).pack(side="left", padx=5)
+        ttk.Button(cert_row, text="Selecionar arquivo", command=self.selecionar_certificado).pack(side="left", padx=5)
+
+        if os.name == "nt":
+            ttk.Button(
+                cert_row,
+                text="Usar instalado no Windows",
+                command=self.selecionar_certificado_windows,
+            ).pack(side="left")
 
         self.field(form, "Senha", self.senha, 3, show="•")
 
@@ -209,12 +313,131 @@ class DownloadNFe55App:
         ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", pady=5)
         ttk.Entry(parent, textvariable=variable, show=show).grid(row=row, column=1, sticky="ew", pady=5)
 
+    def fechar(self):
+        self.limpar_certificado_temporario()
+        self.root.destroy()
+
+    def limpar_certificado_temporario(self):
+        if not self.certificado_temporario:
+            return
+
+        try:
+            Path(self.certificado_temporario).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+        self.certificado_temporario = None
+
     def selecionar_certificado(self):
         path = filedialog.askopenfilename(
             filetypes=[("Certificado A1", "*.pfx *.p12"), ("Todos os arquivos", "*.*")]
         )
         if path:
+            self.limpar_certificado_temporario()
             self.certificado.set(path)
+            self.status.set("Certificado A1 selecionado.")
+
+    def selecionar_certificado_windows(self):
+        try:
+            certificados = list_windows_certificates()
+        except Exception as exc:
+            messagebox.showerror("Certificados do Windows", str(exc))
+            return
+
+        if not certificados:
+            messagebox.showinfo(
+                "Certificados do Windows",
+                "Nenhum certificado com chave privada foi encontrado no repositório do Windows.",
+            )
+            return
+
+        self.abrir_janela_certificados(certificados)
+
+    def abrir_janela_certificados(self, certificados):
+        janela = tk.Toplevel(self.root)
+        janela.title("Certificados instalados no Windows")
+        janela.geometry("860x380")
+        janela.transient(self.root)
+        janela.grab_set()
+
+        frame = ttk.Frame(janela, padding=12)
+        frame.pack(fill="both", expand=True)
+
+        colunas = ("nome", "validade", "repositorio", "thumbprint")
+        lista = ttk.Treeview(frame, columns=colunas, show="headings", selectmode="browse")
+        lista.heading("nome", text="Certificado")
+        lista.heading("validade", text="Validade")
+        lista.heading("repositorio", text="Repositório")
+        lista.heading("thumbprint", text="Thumbprint")
+        lista.column("nome", width=360)
+        lista.column("validade", width=140)
+        lista.column("repositorio", width=130)
+        lista.column("thumbprint", width=220)
+        lista.pack(fill="both", expand=True)
+
+        por_item = {}
+        for cert in certificados:
+            nome = cert.get("FriendlyName") or cert.get("Subject") or "Certificado"
+            iid = lista.insert(
+                "",
+                "end",
+                values=(
+                    nome,
+                    cert.get("NotAfter", ""),
+                    cert.get("StoreName", ""),
+                    cert.get("Thumbprint", ""),
+                ),
+            )
+            por_item[iid] = cert
+
+        botoes = ttk.Frame(frame)
+        botoes.pack(fill="x", pady=(10, 0))
+
+        def usar_selecionado(event=None):
+            selecao = lista.selection()
+            if not selecao:
+                messagebox.showwarning("Certificados do Windows", "Selecione um certificado.")
+                return
+
+            cert = por_item[selecao[0]]
+            janela.destroy()
+            self.usar_certificado_windows(cert)
+
+        ttk.Button(botoes, text="Usar certificado", command=usar_selecionado).pack(side="left")
+        ttk.Button(botoes, text="Cancelar", command=janela.destroy).pack(side="left", padx=6)
+        lista.bind("<Double-1>", usar_selecionado)
+
+        if lista.get_children():
+            primeiro = lista.get_children()[0]
+            lista.selection_set(primeiro)
+            lista.focus(primeiro)
+
+    def usar_certificado_windows(self, cert):
+        self.status.set("Preparando certificado instalado no Windows...")
+        self.root.update_idletasks()
+
+        senha_temporaria = secrets.token_urlsafe(32)
+        destino = Path(tempfile.gettempdir()) / f"downloadnfe55-{secrets.token_hex(12)}.pfx"
+
+        try:
+            export_windows_certificate(cert, destino, senha_temporaria)
+        except Exception as exc:
+            messagebox.showerror(
+                "Certificados do Windows",
+                "Não foi possível usar esse certificado instalado.\n\n"
+                "Geralmente isso acontece quando a chave privada não permite exportação. "
+                "Nesse caso, use o arquivo .pfx/.p12 original.\n\n"
+                f"Detalhe: {exc}",
+            )
+            self.status.set("Não foi possível usar o certificado instalado.")
+            return
+
+        self.limpar_certificado_temporario()
+        self.certificado_temporario = str(destino)
+        self.certificado.set(str(destino))
+        self.senha.set(senha_temporaria)
+        self.status.set("Certificado instalado no Windows selecionado.")
+        messagebox.showinfo("Certificados do Windows", "Certificado selecionado com sucesso.")
 
     def selecionar_pasta(self):
         path = filedialog.askdirectory()
